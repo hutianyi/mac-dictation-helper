@@ -1,0 +1,15 @@
+.DS_Store
+
+# Build products and compiler caches
+build/
+DerivedData/
+*.app
+
+# Swift and Xcode user state
+.swiftpm/
+Packages/
+*.xcuserstate
+xcuserdata/
+
+# Intermediate icon export used only during local icon generation
+Assets/AppIcon.rgba.iconset/
