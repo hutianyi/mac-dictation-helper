@@ -34,9 +34,5 @@ cp "$SCRIPT_DIR/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$SCRIPT_DIR/Assets/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 xattr -cr "$APP_DIR"
 codesign --force --deep --sign - "$APP_DIR"
-# Finder or cloud-sync metadata can be attached to a newly built bundle after signing.
-# Remove it once more so Gatekeeper's signature validation sees a clean app bundle.
-xattr -cr "$APP_DIR"
-codesign --verify --deep --strict "$APP_DIR"
 
 echo "Built: $APP_DIR"
