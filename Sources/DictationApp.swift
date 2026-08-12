@@ -446,6 +446,7 @@ struct DictationApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.light)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 760, height: 650)
