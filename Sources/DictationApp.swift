@@ -13,9 +13,13 @@ final class DictationSession: ObservableObject {
     @Published private(set) var phase: Phase = .setup
     @Published private(set) var words: [String] = []
     @Published private(set) var currentIndex = 0
+    @Published private(set) var secondsRemaining = DictationCountdown.totalSeconds
 
     private let synthesizer = AVSpeechSynthesizer()
     private var speechRate: Float = 0.42
+    private var countdown: DictationCountdown?
+    private var countdownTask: Task<Void, Never>?
+    private var countdownGeneration = 0
 
     var totalCount: Int { words.count }
     var progress: Double {
@@ -29,7 +33,7 @@ final class DictationSession: ObservableObject {
         currentIndex = 0
         speechRate = Float(rate)
         phase = .dictating
-        speakCurrent()
+        beginCurrentWord()
     }
 
     func speakCurrent() {
@@ -42,10 +46,9 @@ final class DictationSession: ObservableObject {
         guard phase == .dictating else { return }
         if currentIndex + 1 < words.count {
             currentIndex += 1
-            speakCurrent()
+            beginCurrentWord()
         } else {
-            phase = .finished
-            speak("默写结束", language: "zh-CN")
+            finish()
         }
     }
 
@@ -54,23 +57,100 @@ final class DictationSession: ObservableObject {
         currentIndex = 0
         speechRate = Float(rate)
         phase = .dictating
-        speakCurrent()
+        beginCurrentWord()
     }
 
     func returnToSetup() {
+        cancelCountdown()
         synthesizer.stopSpeaking(at: .immediate)
         phase = .setup
     }
 
+    private func beginCurrentWord() {
+        startCountdown()
+        speakCurrent()
+    }
+
+    private func startCountdown() {
+        cancelCountdown(resetDisplay: false)
+        countdown = DictationCountdown()
+        secondsRemaining = DictationCountdown.totalSeconds
+        let generation = countdownGeneration
+
+        countdownTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .milliseconds(100))
+                } catch {
+                    return
+                }
+
+                guard let self,
+                      self.phase == .dictating,
+                      self.countdownGeneration == generation,
+                      var countdown = self.countdown else {
+                    return
+                }
+
+                let update = countdown.update()
+                self.countdown = countdown
+                self.secondsRemaining = update.secondsRemaining
+
+                if update.shouldRepeatAndWarn {
+                    self.speakHalfwayReminder()
+                }
+
+                if update.shouldAdvance {
+                    self.next()
+                    return
+                }
+            }
+        }
+    }
+
+    private func cancelCountdown(resetDisplay: Bool = true) {
+        countdownTask?.cancel()
+        countdownTask = nil
+        countdown = nil
+        countdownGeneration += 1
+        if resetDisplay {
+            secondsRemaining = DictationCountdown.totalSeconds
+        }
+    }
+
+    private func speakHalfwayReminder() {
+        guard phase == .dictating, words.indices.contains(currentIndex) else { return }
+        let word = words[currentIndex]
+        speakSequence([
+            (
+                DictationCore.repeatedSpeechText(for: word),
+                DictationCore.language(for: word)
+            ),
+            ("还有十五秒，将自动进入下一个词语", "zh-CN")
+        ])
+    }
+
+    private func finish() {
+        cancelCountdown()
+        phase = .finished
+        speak("默写结束", language: "zh-CN")
+    }
+
     private func speak(_ text: String, language: String) {
+        speakSequence([(text, language)])
+    }
+
+    private func speakSequence(_ items: [(text: String, language: String)]) {
         synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = PreferredVoices.voice(for: language)
-        utterance.rate = speechRate
-        utterance.pitchMultiplier = 1.0
-        utterance.preUtteranceDelay = 0.18
-        utterance.postUtteranceDelay = 0.08
-        synthesizer.speak(utterance)
+        for (index, item) in items.enumerated() {
+            let utterance = AVSpeechUtterance(string: item.text)
+            utterance.voice = PreferredVoices.voice(for: item.language)
+            utterance.rate = speechRate
+            utterance.pitchMultiplier = 1.0
+            utterance.preUtteranceDelay = index == 0 ? 0.18 : 0.25
+            utterance.postUtteranceDelay = 0.08
+            synthesizer.speak(utterance)
+        }
     }
 }
 
@@ -143,6 +223,9 @@ struct ContentView: View {
                     .frame(minHeight: 190)
 
                 Text("空格、连续空格、换行、Tab、逗号和分号都可以分隔词语。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Text("每个词语最多30秒；15秒时会自动重读并提醒。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -220,8 +303,10 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
 
+            countdownView
+
             HStack(spacing: 16) {
-                shortcutHint(key: "R", text: "重复朗读")
+                shortcutHint(key: "R", text: "重复朗读（计时继续）")
                 shortcutHint(key: "空格", text: "下一个")
             }
 
@@ -255,6 +340,37 @@ struct ContentView: View {
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .shadow(color: .black.opacity(0.10), radius: 24, y: 10)
+    }
+
+    private var countdownView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "timer")
+                .font(.title2)
+            Text("\(session.secondsRemaining) 秒")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .monospacedDigit()
+            Text(session.secondsRemaining <= DictationCountdown.halfwaySeconds
+                 ? "即将自动进入下一个词语"
+                 : "本词剩余时间")
+                .font(.callout)
+        }
+        .foregroundStyle(countdownColor)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(countdownColor.opacity(0.10))
+        .clipShape(Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("本词剩余 \(session.secondsRemaining) 秒")
+    }
+
+    private var countdownColor: Color {
+        if session.secondsRemaining <= 5 {
+            return .red
+        }
+        if session.secondsRemaining <= DictationCountdown.halfwaySeconds {
+            return .orange
+        }
+        return .blue
     }
 
     private var finishedView: some View {

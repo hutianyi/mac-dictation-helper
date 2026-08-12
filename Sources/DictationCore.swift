@@ -25,3 +25,46 @@ enum DictationCore {
             : "\(text). \(text)"
     }
 }
+
+struct DictationCountdown {
+    struct Update: Equatable {
+        let secondsRemaining: Int
+        let shouldRepeatAndWarn: Bool
+        let shouldAdvance: Bool
+    }
+
+    static let totalSeconds = 30
+    static let halfwaySeconds = 15
+
+    let deadline: Date
+    private(set) var didRepeatAndWarn = false
+
+    init(startedAt: Date = Date()) {
+        deadline = startedAt.addingTimeInterval(TimeInterval(Self.totalSeconds))
+    }
+
+    mutating func update(at now: Date = Date()) -> Update {
+        let interval = max(0, deadline.timeIntervalSince(now))
+        let secondsRemaining = Int(ceil(interval))
+
+        if secondsRemaining == 0 {
+            return Update(
+                secondsRemaining: 0,
+                shouldRepeatAndWarn: false,
+                shouldAdvance: true
+            )
+        }
+
+        let shouldRepeatAndWarn = !didRepeatAndWarn
+            && secondsRemaining <= Self.halfwaySeconds
+        if shouldRepeatAndWarn {
+            didRepeatAndWarn = true
+        }
+
+        return Update(
+            secondsRemaining: secondsRemaining,
+            shouldRepeatAndWarn: shouldRepeatAndWarn,
+            shouldAdvance: false
+        )
+    }
+}

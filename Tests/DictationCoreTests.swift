@@ -26,6 +26,44 @@ struct DictationCoreTests {
         assert(DictationCore.language(for: "第 1 课") == "zh-CN")
         assert(DictationCore.repeatedSpeechText(for: "连续") == "连续，连续")
         assert(DictationCore.repeatedSpeechText(for: "wonderful") == "wonderful. wonderful")
+
+        let startedAt = Date(timeIntervalSince1970: 1_000)
+        var countdown = DictationCountdown(startedAt: startedAt)
+        assert(
+            countdown.update(at: startedAt) == .init(
+                secondsRemaining: 30,
+                shouldRepeatAndWarn: false,
+                shouldAdvance: false
+            )
+        )
+        assert(
+            countdown.update(at: startedAt.addingTimeInterval(14.2)) == .init(
+                secondsRemaining: 16,
+                shouldRepeatAndWarn: false,
+                shouldAdvance: false
+            )
+        )
+        assert(
+            countdown.update(at: startedAt.addingTimeInterval(15)) == .init(
+                secondsRemaining: 15,
+                shouldRepeatAndWarn: true,
+                shouldAdvance: false
+            )
+        )
+        assert(
+            countdown.update(at: startedAt.addingTimeInterval(20)) == .init(
+                secondsRemaining: 10,
+                shouldRepeatAndWarn: false,
+                shouldAdvance: false
+            )
+        )
+        assert(
+            countdown.update(at: startedAt.addingTimeInterval(30)) == .init(
+                secondsRemaining: 0,
+                shouldRepeatAndWarn: false,
+                shouldAdvance: true
+            )
+        )
         print("DictationCore tests passed")
     }
 }

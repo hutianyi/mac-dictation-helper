@@ -7,7 +7,7 @@
     <key>CFBundleDisplayName</key>
     <string>默写小程序</string>
     <key>CFBundleExecutable</key>
-    <string>默写小程序</string>
+    <string>DictationHelper</string>
     <key>CFBundleIdentifier</key>
     <string>com.rfocus.dictation-helper</string>
     <key>CFBundleIconFile</key>
@@ -19,9 +19,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3</string>
+    <string>1.4</string>
     <key>CFBundleVersion</key>
-    <string>4</string>
+    <string>5</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.education</string>
     <key>LSMinimumSystemVersion</key>

@@ -15,6 +15,7 @@ SDK_PATH="${DICTATION_SDK:-${VERSIONED_SDK_PATH:-$DEFAULT_SDK_PATH}}"
 TARGET_ARCH="${DICTATION_ARCH:-$(uname -m)}"
 
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$MODULE_CACHE_DIR"
+rm -f "$MACOS_DIR/默写小程序"
 
 xcrun swiftc \
     -O \
@@ -28,7 +29,7 @@ xcrun swiftc \
     "$SCRIPT_DIR/Sources/DictationCore.swift" \
     "$SCRIPT_DIR/Sources/PreferredVoices.swift" \
     "$SCRIPT_DIR/Sources/DictationApp.swift" \
-    -o "$MACOS_DIR/默写小程序"
+    -o "$MACOS_DIR/DictationHelper"
 
 cp "$SCRIPT_DIR/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$SCRIPT_DIR/Assets/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
